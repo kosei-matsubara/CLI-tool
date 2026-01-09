@@ -1,0 +1,37 @@
+import axios from 'axios';
+
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+
+const apiClient = axios.create({
+  baseURL: API_URL,
+  headers: {
+    'Content-Type': 'application/json',
+  },
+});
+
+export interface CustomerSalesRanking {
+  rank: number;
+  customer_id: number;
+  sales: number;
+}
+
+export interface CustomerSalesRankingResponse {
+  status: string;
+  usecase: string;
+  top_n: number;
+  ranking: CustomerSalesRanking[];
+  graph_url: string;
+  total_records: number;
+  valid_customers: number;
+}
+
+export const analyticsApi = {
+  getCustomerSalesRanking: async (topN: number = 10): Promise<CustomerSalesRankingResponse> => {
+    const response = await apiClient.get<CustomerSalesRankingResponse>(
+      `/api/v1/analytics/customer-sales-ranking?top_n=${topN}`
+    );
+    return response.data;
+  },
+};
+
+export default apiClient;
