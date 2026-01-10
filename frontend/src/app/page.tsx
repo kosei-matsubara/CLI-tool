@@ -1,13 +1,15 @@
 'use client';
 
 import { useState } from 'react';
-import { analyticsApi, CustomerSalesRankingResponse } from '@/lib/api';
+import { analyticsApi, CustomerSalesRankingResponse, PopularProductsRankingResponse } from '@/lib/api';
+
+type AnalyticsResult = CustomerSalesRankingResponse | PopularProductsRankingResponse;
 
 export default function Home() {
   const [inputFile, setInputFile] = useState<string>('./onlineRetail.xlsx');
   const [outputDir, setOutputDir] = useState<string>('./output');
   const [loading, setLoading] = useState<boolean>(false);
-  const [result, setResult] = useState<CustomerSalesRankingResponse | null>(null);
+  const [result, setResult] = useState<AnalyticsResult | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const handleCustomerSalesRanking = async () => {
@@ -17,6 +19,21 @@ export default function Home() {
 
     try {
       const data = await analyticsApi.getCustomerSalesRanking(10);
+      setResult(data);
+    } catch (err: any) {
+      setError(err.response?.data?.detail || err.message || '集計処理でエラーが発生しました');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handlePopularProductsRanking = async () => {
+    setLoading(true);
+    setError(null);
+    setResult(null);
+
+    try {
+      const data = await analyticsApi.getPopularProductsRanking(10);
       setResult(data);
     } catch (err: any) {
       setError(err.response?.data?.detail || err.message || '集計処理でエラーが発生しました');
@@ -102,13 +119,26 @@ export default function Home() {
               )}
             </button>
 
-            {/* 将来の拡張用（ユースケース№2, №3） */}
+            {/* ユースケース№2 */}
             <button
-              disabled
-              className="w-full bg-gray-300 text-gray-500 font-medium py-3 px-6 rounded-md cursor-not-allowed"
+              onClick={handlePopularProductsRanking}
+              disabled={loading}
+              className="w-full bg-green-600 hover:bg-green-700 disabled:bg-gray-400 text-white font-medium py-3 px-6 rounded-md transition duration-200 flex items-center justify-center"
             >
-              2. 人気商品のトップ10（未実装）
+              {loading ? (
+                <>
+                  <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                  処理中...
+                </>
+              ) : (
+                '2. 人気商品のトップ10'
+              )}
             </button>
+
+            {/* 将来の拡張用（ユースケース№3） */}
             <button
               disabled
               className="w-full bg-gray-300 text-gray-500 font-medium py-3 px-6 rounded-md cursor-not-allowed"
@@ -150,8 +180,12 @@ export default function Home() {
                 <p className="text-2xl font-bold text-blue-600">{result.total_records.toLocaleString()}</p>
               </div>
               <div className="bg-green-50 p-4 rounded-md">
-                <p className="text-sm text-gray-600">有効顧客数</p>
-                <p className="text-2xl font-bold text-green-600">{result.valid_customers}</p>
+                <p className="text-sm text-gray-600">
+                  {'valid_customers' in result ? '有効顧客数' : '有効商品数'}
+                </p>
+                <p className="text-2xl font-bold text-green-600">
+                  {'valid_customers' in result ? result.valid_customers : result.valid_products}
+                </p>
               </div>
               <div className="bg-purple-50 p-4 rounded-md">
                 <p className="text-sm text-gray-600">表示件数</p>
@@ -165,7 +199,7 @@ export default function Home() {
               <div className="border border-gray-200 rounded-md overflow-hidden">
                 <img
                   src={`http://localhost:8000${result.graph_url}`}
-                  alt="顧客別売上ランキング"
+                  alt={result.usecase}
                   className="w-full"
                 />
               </div>
@@ -182,24 +216,27 @@ export default function Home() {
                         順位
                       </th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        顧客ID
+                        {'valid_customers' in result ? '顧客ID' : '商品名'}
                       </th>
                       <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        売上（Sales）
+                        {'valid_customers' in result ? '売上（Sales）' : '販売数量（Quantity）'}
                       </th>
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
-                    {result.ranking.map((item) => (
-                      <tr key={item.customer_id} className="hover:bg-gray-50">
+                    {result.ranking.map((item, index) => (
+                      <tr key={index} className="hover:bg-gray-50">
                         <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                           {item.rank}
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
-                          {item.customer_id}
+                        <td className="px-6 py-4 text-sm text-gray-700">
+                          {'customer_id' in item ? item.customer_id : item.product_name}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-right text-gray-900 font-semibold">
-                          ¥{item.sales.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                          {'sales' in item
+                            ? `¥${item.sales.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+                            : item.quantity.toLocaleString()
+                          }
                         </td>
                       </tr>
                     ))}

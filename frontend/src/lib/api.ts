@@ -25,10 +25,33 @@ export interface CustomerSalesRankingResponse {
   valid_customers: number;
 }
 
+export interface PopularProductsRanking {
+  rank: number;
+  product_name: string;
+  quantity: number;
+}
+
+export interface PopularProductsRankingResponse {
+  status: string;
+  usecase: string;
+  top_n: number;
+  ranking: PopularProductsRanking[];
+  graph_url: string;
+  total_records: number;
+  valid_products: number;
+}
+
 export const analyticsApi = {
   getCustomerSalesRanking: async (topN: number = 10): Promise<CustomerSalesRankingResponse> => {
     const response = await apiClient.get<CustomerSalesRankingResponse>(
       `/api/v1/analytics/customer-sales-ranking?top_n=${topN}`
+    );
+    return response.data;
+  },
+
+  getPopularProductsRanking: async (topN: number = 10): Promise<PopularProductsRankingResponse> => {
+    const response = await apiClient.get<PopularProductsRankingResponse>(
+      `/api/v1/analytics/popular-products-ranking?top_n=${topN}`
     );
     return response.data;
   },

@@ -1,4 +1,4 @@
-# Online Retail Analytics - ユースケース№1実装
+# Online Retail Analytics - ユースケース№1, №2実装完了
 
 FastAPI（バックエンド）とNext.js（フロントエンド）を使用したオンライン小売データ分析アプリケーション
 
@@ -7,6 +7,12 @@ FastAPI（バックエンド）とNext.js（フロントエンド）を使用し
 ### ユースケース№1: 顧客別の売上ランキング
 - 顧客IDごと（CustomerID）に売上（Sales = UnitPrice × Quantity）を集計
 - 上位10名をリストアップ
+- 棒グラフで可視化（PNG画像として保存）
+- コンソールにテキスト形式で表示
+
+### ユースケース№2: 人気商品のトップ10
+- 商品ごと（Description）に販売数量（Quantity）を集計
+- ランキング上位10の商品を特定
 - 棒グラフで可視化（PNG画像として保存）
 - コンソールにテキスト形式で表示
 
@@ -98,11 +104,13 @@ npm run dev
 ## 使い方
 
 1. ブラウザで http://localhost:3000 にアクセス
-2. ホーム画面で「1. 顧客別の売上ランキング」ボタンをクリック
+2. ホーム画面でユースケースを選択：
+   - **「1. 顧客別の売上ランキング」ボタン**: 顧客別の売上分析
+   - **「2. 人気商品のトップ10」ボタン**: 商品別の販売数量分析
 3. 結果が表示されます:
    - 総レコード数
-   - 有効顧客数
-   - 売上ランキングTOP10のグラフ
+   - 有効顧客数/有効商品数
+   - ランキングTOP10のグラフ（棒グラフ）
    - ランキング詳細テーブル
 
 ## API エンドポイント
@@ -132,6 +140,31 @@ GET /api/v1/analytics/customer-sales-ranking?top_n=10
 }
 ```
 
+### 人気商品ランキング取得
+```
+GET /api/v1/analytics/popular-products-ranking?top_n=10
+```
+
+レスポンス例:
+```json
+{
+  "status": "success",
+  "usecase": "人気商品ランキング",
+  "top_n": 10,
+  "ranking": [
+    {
+      "rank": 1,
+      "product_name": "WORLD WAR 2 GLIDERS ASSTD DESIGNS",
+      "quantity": 53847
+    },
+    ...
+  ],
+  "graph_url": "/output/popular_products_ranking_20260109_123456.png",
+  "total_records": 541909,
+  "valid_products": 10
+}
+```
+
 ## 技術スタック
 
 ### バックエンド
@@ -150,7 +183,7 @@ GET /api/v1/analytics/customer-sales-ranking?top_n=10
 ## 開発状況
 
 - ✅ ユースケース№1: 顧客別の売上ランキング（完了）
-- ⬜ ユースケース№2: 人気商品のトップ10（未実装）
+- ✅ ユースケース№2: 人気商品のトップ10（完了）
 - ⬜ ユースケース№3: 時間帯別の売上傾向（未実装）
 
 ## トラブルシューティング
