@@ -41,6 +41,24 @@ export interface PopularProductsRankingResponse {
   valid_products: number;
 }
 
+export interface HourlySalesData {
+  hour: number;
+  sales: number;
+}
+
+export interface HourlySalesTrendResponse {
+  status: string;
+  usecase: string;
+  data: HourlySalesData[];
+  graph_url: string;
+  total_records: number;
+  valid_records: number;
+  peak_hour: number;
+  peak_sales: number;
+  lowest_hour: number;
+  lowest_sales: number;
+}
+
 export const analyticsApi = {
   getCustomerSalesRanking: async (topN: number = 10): Promise<CustomerSalesRankingResponse> => {
     const response = await apiClient.get<CustomerSalesRankingResponse>(
@@ -52,6 +70,13 @@ export const analyticsApi = {
   getPopularProductsRanking: async (topN: number = 10): Promise<PopularProductsRankingResponse> => {
     const response = await apiClient.get<PopularProductsRankingResponse>(
       `/api/v1/analytics/popular-products-ranking?top_n=${topN}`
+    );
+    return response.data;
+  },
+
+  getHourlySalesTrend: async (): Promise<HourlySalesTrendResponse> => {
+    const response = await apiClient.get<HourlySalesTrendResponse>(
+      `/api/v1/analytics/hourly-sales-trend`
     );
     return response.data;
   },

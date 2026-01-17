@@ -205,3 +205,108 @@ async def get_popular_products_ranking(top_n: int = 10) -> Dict[str, Any]:
         "total_records": len(df),
         "valid_products": len(ranking_df)
     }
+
+
+def calculate_hourly_sales_trend(df: pd.DataFrame) -> tuple[pd.DataFrame, str]:
+    """
+    時間帯別の売上傾向を計算し、折れ線グラフを生成する
+
+    Args:
+        df: 入力データフレーム
+
+    Returns:
+        tuple: (時間帯別売上データフレーム, グラフファイルパス)
+    """
+    # Sales列を計算（UnitPrice * Quantity）
+    df['Sales'] = df['UnitPrice'] * df['Quantity']
+
+    # InvoiceDateが有効な行を抽出
+    df_valid = df[df['InvoiceDate'].notna()].copy()
+
+    # InvoiceDateから時間を抽出
+    df_valid['Hour'] = pd.to_datetime(df_valid['InvoiceDate']).dt.hour
+
+    # 時間帯ごとに売上を集計
+    hourly_sales = df_valid.groupby('Hour')['Sales'].sum().reset_index()
+
+    # 0-23時までの全時間帯を含むようにする（データがない時間帯は0）
+    all_hours = pd.DataFrame({'Hour': range(24)})
+    hourly_sales = all_hours.merge(hourly_sales, on='Hour', how='left').fillna(0)
+
+    # 時間でソート
+    hourly_sales = hourly_sales.sort_values('Hour')
+
+    # 折れ線グラフ生成
+    plt.figure(figsize=(14, 7))
+    plt.plot(hourly_sales['Hour'], hourly_sales['Sales'], marker='o', linewidth=2, color='coral', markersize=8)
+    plt.fill_between(hourly_sales['Hour'], hourly_sales['Sales'], alpha=0.3, color='coral')
+    plt.xlabel('時間帯（時）', fontsize=12)
+    plt.ylabel('売上（Sales）', fontsize=12)
+    plt.title('時間帯別の売上傾向', fontsize=14, fontweight='bold')
+    plt.xticks(range(24), [f'{h}時' for h in range(24)], rotation=45, ha='right')
+    plt.grid(True, linestyle='--', alpha=0.7)
+    plt.tight_layout()
+
+    # グラフを保存
+    os.makedirs(OUTPUT_DIR, exist_ok=True)
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    graph_filename = f"hourly_sales_trend_{timestamp}.png"
+    graph_path = os.path.join(OUTPUT_DIR, graph_filename)
+    plt.savefig(graph_path, dpi=150, bbox_inches='tight')
+    plt.close()
+
+    return hourly_sales, graph_filename
+
+
+@router.get("/hourly-sales-trend")
+async def get_hourly_sales_trend() -> Dict[str, Any]:
+    """
+    時間帯別の売上傾向を取得
+
+    ユースケース№3: 注文日時（InvoiceDate）から時間だけを抽出し、
+    時間帯ごとの売上（Sales）を折れ線グラフで可視化する。
+    売上（Sales）=UnitPrice*Quantity
+
+    Returns:
+        時間帯別売上データとグラフのURL
+    """
+    # データ読み込み
+    df = load_data()
+
+    # 時間帯別売上計算とグラフ生成
+    hourly_df, graph_filename = calculate_hourly_sales_trend(df)
+
+    # レスポンス用にデータを整形
+    hourly_data = []
+    for idx, row in hourly_df.iterrows():
+        hourly_data.append({
+            "hour": int(row['Hour']),
+            "sales": float(row['Sales'])
+        })
+
+    # コンソールにテキスト形式で出力
+    print("\n" + "="*50)
+    print("時間帯別の売上傾向")
+    print("="*50)
+    for item in hourly_data:
+        bar_length = int(item['sales'] / max(h['sales'] for h in hourly_data) * 30) if max(h['sales'] for h in hourly_data) > 0 else 0
+        bar = '█' * bar_length
+        print(f"{item['hour']:2d}時 | ¥{item['sales']:>12,.2f} | {bar}")
+    print("="*50 + "\n")
+
+    # 売上が最大の時間帯を特定
+    max_hour = max(hourly_data, key=lambda x: x['sales'])
+    min_hour = min(hourly_data, key=lambda x: x['sales'])
+
+    return {
+        "status": "success",
+        "usecase": "時間帯別の売上傾向",
+        "data": hourly_data,
+        "graph_url": f"/output/{graph_filename}",
+        "total_records": len(df),
+        "valid_records": len(df[df['InvoiceDate'].notna()]),
+        "peak_hour": max_hour['hour'],
+        "peak_sales": max_hour['sales'],
+        "lowest_hour": min_hour['hour'],
+        "lowest_sales": min_hour['sales']
+    }
